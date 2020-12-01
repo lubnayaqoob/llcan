@@ -41,5 +41,7 @@ void printCANFrame(struct can_frame frame);
 void createCANFrame(struct can_frame *frame, unsigned int canID, unsigned char len, const unsigned char * data) ;
 int sendCANFrame_basic(const char* dev, struct can_frame frame);
 int sendCANFrame(const char* dev, unsigned int canID, unsigned char len, const unsigned char * data);
+void startCANReceive(const char* dev, void (*fn) (struct can_frame frame));
+void stopCANReceive();
 
 #endif /* LLCAN_H_ */
