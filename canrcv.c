@@ -13,7 +13,8 @@ void printHelp() {
 
 void handle_signal() {
 	printf("received signal ... stopping\n");
-	stop_main = 1;
+	// stop_main = 1;
+	stopCANReceive();
 
 }
 
@@ -29,6 +30,9 @@ int main (int argc, char* argv[]) {
 		strcpy(dev, argv[1]);
 	}
 
+	startCANReceive(dev,printCANFrame);
+
+#if 0
 	int skt = socket( PF_CAN, SOCK_RAW, CAN_RAW );
 
 	struct ifreq ifr;
@@ -59,9 +63,9 @@ int main (int argc, char* argv[]) {
 			if (bytes_read > 0)
 				printCANFrame(frame);
 			else
-				printf("Error while reading CAN frane\n");
+				printf("Error while reading CAN frame\n");
 		}
 	}
-
+#endif
 	return 0;
 }
