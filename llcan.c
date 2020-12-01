@@ -23,23 +23,27 @@
 
 #include <errno.h>
 
+#include <poll.h>
+
 #include "llcan.h"
+
+static volatile int stop_receiving = 0;
 
 ssize_t
 write_with_retry (int fd, const void* buf, size_t size)
 {
-    ssize_t ret;
-    while (size > 0) {
-        do
-        {
-             ret = write(fd, buf, size);
-        } while ((ret < 0) && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));
-        if (ret < 0)
-            return ret;
-        size -= ret;
-        buf += ret;
-    }
-    return 0;
+	ssize_t ret;
+	while (size > 0) {
+		do
+		{
+			ret = write(fd, buf, size);
+		} while ((ret < 0) && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK));
+		if (ret < 0)
+			return ret;
+		size -= ret;
+		buf += ret;
+	}
+	return 0;
 }
 
 void printHelpCANsnd() {
@@ -55,6 +59,7 @@ void printCANFrame(struct can_frame frame) {
 			frame.can_id,
 			len
 	);
+	//printf("printing frames");
 	for (int i=0;i<len;i++) {
 		printf("%0X  ",frame.data[i]);
 	}
@@ -65,7 +70,7 @@ void printCANFrame(struct can_frame frame) {
 			printf("%#x  ",frame.data[i]);
 		}
 	}
-	*/
+	 */
 	printf("\n");
 }
 
@@ -106,3 +111,36 @@ int sendCANFrame(const char* dev, unsigned int canID, unsigned char len, const u
 	return sendCANFrame_basic(dev, frame);
 }
 
+void startCANReceive(const char* dev, void (*fn) (struct can_frame frame)) {
+	int skt = socket( PF_CAN, SOCK_RAW, CAN_RAW );
+	struct ifreq ifr;
+	strcpy(ifr.ifr_name, dev);
+	if (0 > ioctl(skt, SIOCGIFINDEX, &ifr) ) {
+		printf("Error while opening the device %s\n", dev);
+		return;
+	}
+	struct sockaddr_can addr;
+	addr.can_family = AF_CAN;
+	addr.can_ifindex = ifr.ifr_ifindex;
+	bind( skt, (struct sockaddr*)&addr, sizeof(addr) );
+	struct can_frame frame;
+	struct pollfd fd[1];
+	int poll_result;
+	fd[0].fd = skt;
+	fd[0].events = POLLIN | POLLRDNORM | POLLRDBAND | POLLPRI;
+	while (!stop_receiving) {
+		poll_result = poll(fd, 1, -1);
+		if (poll_result > 0) {
+			int bytes_read = read( skt, &frame, sizeof(frame) );
+			if (bytes_read > 0)
+				fn(frame);
+			else
+				printf("Error while reading CAN frame\n");
+		}
+	}
+	close(skt);
+}
+
+void stopCANReceive() {
+	stop_receiving=1;
+}
